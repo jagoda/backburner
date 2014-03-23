@@ -1,4 +1,7 @@
+var mongo = require("mongoskin");
 var path  = require("path");
+var q     = require("q");
+var uuid  = require("node-uuid");
 
 function localCommand (command) {
 	return path.join(__dirname, "node_modules", ".bin", command);
@@ -85,7 +88,6 @@ module.exports = function (grunt) {
 				disallowMultipleLineBreaks  : true,
 				validateLineBreaks          : "LF",
 				validateQuoteMarks          : "\"",
-				validateIndentation         : "\t",
 				disallowMixedSpacesAndTabs  : true,
 				disallowTrailingWhitespace  : true,
 
@@ -161,40 +163,34 @@ module.exports = function (grunt) {
 
 	grunt.registerTask("default", [ "lint", "style", "test", "coverage" ]);
 
-	grunt.registerTask(
-		"coverage",
-		"Create a test coverage report.",
-		function () {
-			var done = this.async();
+	grunt.registerTask("coverage", "Create a test coverage report.", function () {
+		var done = this.async();
+		var options = {
+			args : [
+				"check-coverage", "--statements", "100",
+				"--functions", "100", "--branches", "100",
+				"--lines", "100"
+			],
+			cmd  : localCommand("istanbul"),
+			opts : {
+				stdio : "inherit"
+			}
+		};
 
-			grunt.log.writeln(
-				"Checking test coverage thresholds..."
-			);
-			grunt.util.spawn(
-				{
-					args : [
-						"check-coverage", "--statements", "100",
-						"--functions", "100", "--branches", "100",
-						"--lines", "100"
-					],
-					cmd  : localCommand("istanbul"),
-					opts : {
-						stdio : "inherit"
-					}
-				},
-				function (error) {
-					if (error) {
-						grunt.log.error("Some code is not covered.");
-						return grunt.fail.fatal(error);
-					}
-					else {
-						grunt.log.ok("All code has test coverage.");
-						return done();
-					}
-				}
-			);
-		}
-	);
+		grunt.log.writeln("Checking test coverage thresholds...");
+		q.ninvoke(grunt.util, "spawn", options)
+		.then(
+			function () {
+				grunt.log.ok("All code has test coverage.");
+				return done();
+			},
+			function (error) {
+				grunt.log.error("Some code is not covered.");
+				return grunt.fail.fatal(error);
+			}
+		)
+		.nodeify(done);
+	});
 
 	grunt.registerTask("lint", "Check for common code problems.", [ "jshint" ]);
 
@@ -210,33 +206,43 @@ module.exports = function (grunt) {
 			"--reporter", "spec"
 		];
 
+		var spawnOptions = {
+			args : parameters,
+			cmd  : localCommand("istanbul"),
+			opts : {
+				env   : environment,
+				stdio : "inherit"
+			}
+		};
+
 		if (pattern) {
 			parameters.push("--grep", pattern);
 		}
 		parameters.push(path.join(__dirname, "test"));
 
+		environment.DATABASE_URL = "mongodb://localhost:27017/" + uuid.v4();
 		environment.NODE_ENV = "test";
 		grunt.log.writeln("Invoking the mocha test suite...");
-		grunt.util.spawn(
-			{
-				args : parameters,
-				cmd  : localCommand("istanbul"),
-				opts : {
-					env   : environment,
-					stdio : "inherit"
-				}
+		grunt.log.writeln("Using database '%s'.", environment.DATABASE_URL);
+		q.ninvoke(grunt.util, "spawn", spawnOptions)
+		.fin(function () {
+			var deferred = q.defer();
+
+			grunt.log.writeln("Destroying test database.");
+			mongo.db(environment.DATABASE_URL).dropDatabase(deferred.makeNodeResolver());
+
+			return deferred.promise;
+		})
+		.then(
+			function () {
+				grunt.log.ok("All tests passed.");
 			},
 			function (error) {
-				if (error) {
-					grunt.log.error("Some tests failed.");
-					grunt.fail.fatal(error);
-				}
-				else {
-					grunt.log.ok("All tests passed.");
-				}
-				done();
+				grunt.log.error("Some tests failed.");
+				grunt.fail.fatal(error);
 			}
-		);
+		)
+		.nodeify(done);
 	});
 
 };

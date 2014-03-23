@@ -22,7 +22,7 @@ function Client (server) {
 }
 
 function Driver () {
-	var server = require("../lib/server");
+	var server = require("../../lib/server");
 
 	this.start = function () {
 		return q.ninvoke(server, "start", 0);

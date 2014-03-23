@@ -1,4 +1,4 @@
-var Driver = require("./Driver");
+var Driver = require("./helpers/Driver");
 var expect = require("chai").expect;
 var q      = require("q");
 
@@ -15,7 +15,7 @@ describe("The REST API", function () {
 		driver.stop().nodeify(done);
 	});
 
-	describe("GET /pool", function () {
+	describe("GET /pool method", function () {
 		var pool;
 		var statusCode;
 
@@ -29,7 +29,7 @@ describe("The REST API", function () {
 		});
 
 		it("responds with code 200", function () {
-			expect(statusCode, "status code").to.equal(200);
+			expect(statusCode, "wrong status code").to.equal(200);
 		});
 
 		it("reports the number of instances currently available", function () {
@@ -41,7 +41,7 @@ describe("The REST API", function () {
 		});
 	});
 
-	describe("POST /pool/instances", function () {
+	describe("POST /pool/instances method", function () {
 		var bodies;
 		var responses;
 
@@ -63,7 +63,7 @@ describe("The REST API", function () {
 
 		it("responds with code 202", function () {
 			_.forEach(responses, function (response) {
-				expect(response.statusCode, "status code").to.equal(202);
+				expect(response.statusCode, "wrong status code").to.equal(202);
 			});
 		});
 
@@ -72,7 +72,7 @@ describe("The REST API", function () {
 
 			_.forEach(bodies, function (body) {
 				expect(body).to.have.property("id");
-				expect(body.url, "instance URL").to.match(pattern);
+				expect(body.url, "bad instance URL").to.match(pattern);
 			});
 		});
 
