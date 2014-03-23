@@ -1,6 +1,5 @@
-var Pool    = require("./Pool");
-var q       = require("q");
-var request = require("request");
+var q         = require("q");
+var request   = require("request");
 
 function Client (server) {
 	function performRequest (method, path) {
@@ -14,14 +13,16 @@ function Client (server) {
 	}
 
 	this.get = function (path) {
-		return performRequest("GET", path);
+		return performRequest("get", path);
+	};
+
+	this.post = function (path) {
+		return performRequest("post", path);
 	};
 }
 
 function Driver () {
 	var server = require("../lib/server");
-
-	var client = new Client(server);
 
 	this.start = function () {
 		return q.ninvoke(server, "start", 0);
@@ -31,7 +32,7 @@ function Driver () {
 		return q.ninvoke(server, "stop");
 	};
 
-	this.pool = new Pool(client);
+	this.client = new Client(server);
 }
 
 module.exports = Driver;
